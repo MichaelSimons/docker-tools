@@ -1,3 +1,5 @@
+# escape=`
+
 # build Microsoft.DotNet.ImageBuilder
 FROM microsoft/dotnet:2.1-sdk AS build-env
 WORKDIR /image-builder
@@ -16,7 +18,34 @@ RUN dotnet test tests/Microsoft.DotNet.ImageBuilder.Tests.csproj -r win7-x64
 RUN dotnet publish ./src/Microsoft.DotNet.ImageBuilder.csproj -c Release -o out -r win7-x64
 
 
+FROM microsoft/windowsservercore:1709 AS docker
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+ENV DOCKER_CHANNEL test
+ENV DOCKER_VERSION 17.09.0-ce-rc1
+ENV DOCKER_DOWNLOAD_URL https://download.docker.com/win/static/${DOCKER_CHANNEL}/x86_64/docker-${DOCKER_VERSION}.zip
+
+# retrieve Docker
+# RUN Install-PackageProvider -Name "Nuget" -RequiredVersion "2.8.5.201" -Force; `
+#     Install-Module -Name DockerMsftProvider -Repository PSGallery -Force; `
+#     Install-Package -Name docker -ProviderName DockerMsftProvider -Force
+
+RUN Invoke-WebRequest -Uri $env:DOCKER_DOWNLOAD_URL -OutFile 'docker.zip'
+RUN Expand-Archive -Path docker.zip -DestinationPath .
+
+
 # build runtime image
-FROM microsoft/nanoserver
+FROM microsoft/nanoserver:1709
+
+USER ContainerAdministrator
+
+COPY --from=docker ["docker\\docker.exe", "C:\\Program Files\\docker\\docker.exe"]
+RUN setx PATH "%PATH%;C:\Program Files\docker"
+
 WORKDIR /image-builder
 COPY --from=build-env /image-builder/src/out ./
+
+# -v \\.\pipe\docker_engine:\\.\pipe\docker_engine Set-ExecutionPolicy Unrestricted; `
+# https://github.com/jenkinsci/docker/pull/582/files
+# https://blog.docker.com/2017/09/docker-windows-server-1709/
