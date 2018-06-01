@@ -35,17 +35,25 @@ RUN Invoke-WebRequest -Uri $env:DOCKER_DOWNLOAD_URL -OutFile 'docker.zip'
 RUN Expand-Archive -Path docker.zip -DestinationPath .
 
 
+# # build runtime image
+# FROM microsoft/nanoserver:1803
+
+# USER ContainerAdministrator
+
+# COPY --from=docker ["docker\\docker.exe", "C:\\Program Files\\docker\\docker.exe"]
+# #COPY ["docker.exe", "C:\\Program Files\\docker\\docker.exe"]
+# RUN setx PATH "%PATH%;C:\Program Files\docker"
+
+# WORKDIR /image-builder
+# COPY --from=build-env /image-builder/src/out ./
+
 # build runtime image
-FROM microsoft/nanoserver:1709
-
-USER ContainerAdministrator
-
-COPY --from=docker ["docker\\docker.exe", "C:\\Program Files\\docker\\docker.exe"]
+FROM microsoft/windowsservercore:1709
+COPY ["docker.exe", "C:\\Program Files\\docker\\docker.exe"]
 RUN setx PATH "%PATH%;C:\Program Files\docker"
 
-WORKDIR /image-builder
-COPY --from=build-env /image-builder/src/out ./
-
 # -v \\.\pipe\docker_engine:\\.\pipe\docker_engine Set-ExecutionPolicy Unrestricted; `
+#docker run -d -p 8080:8080 -v \\.\pipe\docker_engine:\\.\pipe\docker_engine friism/jenkins
+#docker run -it --rm -v \\.\pipe\docker_engine:\\.\pipe\docker_engine msimons/sandbox:nested-docker2
 # https://github.com/jenkinsci/docker/pull/582/files
 # https://blog.docker.com/2017/09/docker-windows-server-1709/
