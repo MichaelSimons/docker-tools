@@ -22,6 +22,7 @@ namespace Microsoft.DotNet.ImageBuilder
                     new CopyImagesCommand(),
                     new GenerateBuildMatrixCommand(),
                     new GenerateTagsReadmeCommand(),
+                    new ListTagsCommand(),
                     new PublishManifestCommand(),
                     new UpdateReadmeCommand(),
                     new UpdateVersionsCommand(),
