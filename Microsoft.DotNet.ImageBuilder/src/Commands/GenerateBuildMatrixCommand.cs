@@ -49,23 +49,32 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
             }
         }
 
-        private void AddTestLegs(MatrixInfo matrix, string[] matrixNameParts, IGrouping<dynamic, PlatformInfo> platformGrouping)
+        private static void AddVersionedOsLegs(
+            MatrixInfo matrix, IGrouping<dynamic, PlatformInfo> platformGrouping, bool includeArchitectureName)
         {
             var versionGroups = platformGrouping
                 .GroupBy(platform => new
                 {
                     // Assumption:  Dockerfile path format <ProductVersion>/<ImageVariant>/<OsVariant>/...
                     DotNetVersion = platform.DockerfilePath.Split(PathSeparators)[0],
-                    OsVersion = platform.DockerfilePath.Split(PathSeparators)[2].TrimEnd("-slim")
-                })
-                .OrderByDescending(grouping => grouping.Key.DotNetVersion)
-                .ThenBy(grouping => grouping.Key.OsVersion);
+                    OsVariant = platform.DockerfilePath.Split(PathSeparators)[2].TrimEnd("-slim")
+                });
             foreach (var versionGrouping in versionGroups)
             {
-                LegInfo leg = new LegInfo() { Name = $"{versionGrouping.Key.DotNetVersion}-{versionGrouping.Key.OsVersion}" };
-                leg.Variables.Add(("dotnetVersion", versionGrouping.Key.DotNetVersion));
-                leg.Variables.Add(("osVersion", versionGrouping.Key.OsVersion));
+                string legName = $"{versionGrouping.Key.DotNetVersion}-{versionGrouping.Key.OsVariant}";
+                if (includeArchitectureName)
+                {
+                    legName += $"-{GetArchitectureDisplayName(platformGrouping)}";
+                }
+
+                LegInfo leg = new LegInfo() { Name = legName };
                 matrix.Legs.Add(leg);
+
+                leg.Variables.Add(("dotnetVersion", versionGrouping.Key.DotNetVersion));
+                leg.Variables.Add(("osType", platformGrouping.Key.OS.ToString().ToLowerInvariant()));
+                leg.Variables.Add(("osVariant", versionGrouping.Key.OsVariant));
+                leg.Variables.Add(("osVersion", platformGrouping.Key.OS == OS.Windows ? platformGrouping.Key.OsVersion : "*"));
+                leg.Variables.Add(("architecture", platformGrouping.Key.Architecture.ToString().ToLowerInvariant()));
             }
         }
 
@@ -75,7 +84,7 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
             // ##vso[task.setvariable variable=x;isoutput=true]{ \"a\": { \"v1\": \"1\" }, \"b\": { \"v1\": \"2\" } }
             foreach (MatrixInfo matrix in matrices)
             {
-                string legs = matrix.Legs
+                string legs = matrix.OrderedLegs
                     .Select(leg =>
                     {
                         string variables = leg.Variables
@@ -122,9 +131,7 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
             List<MatrixInfo> matrices = new List<MatrixInfo>();
 
             // The sort order used here is arbitrary and simply helps the readability of the output.
-            var platformGroups = Manifest.Repos
-                .SelectMany(repo => repo.Images)
-                .SelectMany(image => image.Platforms)
+            var platformGroups = Manifest.GetFilteredPlatforms()
                 .GroupBy(platform =>
                     new { platform.Model.OS, platform.Model.OsVersion, platform.Model.Architecture, platform.Model.Variant })
                 .OrderBy(platformGroup => platformGroup.Key.OS)
@@ -132,44 +139,61 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
                 .ThenBy(platformGroup => platformGroup.Key.Architecture)
                 .ThenByDescending(platformGroup => platformGroup.Key.Variant);
 
-            foreach (var platformGrouping in platformGroups)
-            {
-                string[] matrixNameParts =
-                {
-                    $"{Options.MatrixType.ToString().ToLowerInvariant()}Matrix",
-                    platformGrouping.Key.OS == OS.Windows ? platformGrouping.Key.OsVersion : platformGrouping.Key.OS.ToString(),
-                    platformGrouping.Key.Architecture.GetDisplayName(platformGrouping.Key.Variant)
-                };
-                MatrixInfo matrix = new MatrixInfo() { Name = FormatMatrixName(matrixNameParts) };
-                matrices.Add(matrix);
+            string baseMatrixName = $"{Options.MatrixType.ToString().ToLowerInvariant()}Matrix";
 
-                switch (Options.MatrixType)
+            if (Options.MatrixType == MatrixType.Publish)
+            {
+                MatrixInfo matrix = new MatrixInfo() { Name = baseMatrixName };
+                matrices.Add(matrix);
+                foreach (var platformGrouping in platformGroups)
                 {
-                    case MatrixType.Build:
-                        AddBuildLegs(matrix, matrixNameParts, platformGrouping);
-                        break;
-                    case MatrixType.Test:
-                        AddTestLegs(matrix, matrixNameParts, platformGrouping);
-                        break;
+                    AddVersionedOsLegs(matrix, platformGrouping, true);
+                }
+            }
+            else
+            {
+                foreach (var platformGrouping in platformGroups)
+                {
+                    string[] matrixNameParts =
+                    {
+                        baseMatrixName,
+                        GetOSDisplayName(platformGrouping),
+                        GetArchitectureDisplayName(platformGrouping)
+                    };
+                    MatrixInfo matrix = new MatrixInfo() { Name = FormatMatrixName(matrixNameParts) };
+                    matrices.Add(matrix);
+
+                    switch (Options.MatrixType)
+                    {
+                        case MatrixType.Build:
+                            AddBuildLegs(matrix, matrixNameParts, platformGrouping);
+                            break;
+                        case MatrixType.Test:
+                            AddVersionedOsLegs(matrix, platformGrouping, false);
+                            break;
+                    }
                 }
             }
 
             return matrices;
         }
 
-        private IEnumerable<PlatformInfo> GetPlatformDependencies(PlatformInfo platform)
-        {
-            return platform.IntraRepoFromImages
-                .Select(fromImage => Manifest.GetPlatformByTag(fromImage));
-        }
+        private static string GetArchitectureDisplayName(dynamic platformGrouping) =>
+            ModelExtensions.GetDisplayName(platformGrouping.Key.Architecture, platformGrouping.Key.Variant);
 
-        private void LogDiagnostics(IEnumerable<MatrixInfo> matrices)
+        private static string GetOSDisplayName(dynamic platformGrouping) =>
+            platformGrouping.Key.OS == OS.Windows ? platformGrouping.Key.OsVersion : platformGrouping.Key.OS.ToString();
+
+        private IEnumerable<PlatformInfo> GetPlatformDependencies(PlatformInfo platform) =>
+            platform.InternalFromImages.Select(fromImage => Manifest.GetPlatformByTag(fromImage));
+
+        private static void LogDiagnostics(IEnumerable<MatrixInfo> matrices)
         {
             // Write out the matrices in a human friendly format
             foreach (MatrixInfo matrix in matrices)
             {
                 Logger.WriteMessage($"  {matrix.Name}:");
-                foreach (LegInfo leg in matrix.Legs)
+                foreach (LegInfo leg in matrix.OrderedLegs)
                 {
                     Logger.WriteMessage($"    {leg.Name}:");
                     foreach (var variable in leg.Variables)
@@ -184,6 +208,8 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
         {
             public string Name { get; set; }
             public List<LegInfo> Legs { get; } = new List<LegInfo>();
+
+            public IEnumerable<LegInfo> OrderedLegs { get => Legs.OrderBy(leg => leg.Name); }
         }
 
         private class LegInfo

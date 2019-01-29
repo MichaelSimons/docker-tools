@@ -20,7 +20,9 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
         public bool IsDryRun { get; set; }
         public bool IsVerbose { get; set; }
         public string Manifest { get; set; }
+        public string RegistryOverride { get; set; }
         public string Repo { get; set; }
+        public string RepoPrefix { get; set; }
         public IDictionary<string, string> RepoOverrides { get; set; }
 
         public IDictionary<string, string> Variables { get; set; }
@@ -29,21 +31,21 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
         {
         }
 
-        protected static Architecture DefineArchitectureOption(ArgumentSyntax syntax)
+        protected static void DefineManifestFilterOptions(ArgumentSyntax syntax, IManifestFilterOptions filterOptions)
         {
-            Architecture architecture = DockerHelper.Architecture;
+            string architecture = DockerHelper.Architecture.ToString().ToLowerInvariant();
             syntax.DefineOption(
                 "architecture",
                 ref architecture,
-                value => (Architecture)Enum.Parse(typeof(Architecture), value, true),
-                "Architecture of Dockerfiles to operate on (default is current OS architecture)");
+                "Architecture of Dockerfiles to operate on - wildcard chars * and ? supported (default is current OS architecture)");
+            filterOptions.Architecture = architecture;
 
-            return architecture;
-        }
-
-        protected static void DefineManifestFilterOptions(ArgumentSyntax syntax, IManifestFilterOptions filterOptions)
-        {
-            filterOptions.Architecture = DefineArchitectureOption(syntax);
+            string osType = DockerHelper.OS.ToString().ToLowerInvariant();
+            syntax.DefineOption(
+                "os-type",
+                ref osType,
+                "OS type (linux/windows) of the Dockerfiles to build - wildcard chars * and ? supported (default is the Docker OS)");
+            filterOptions.OsType = osType;
 
             string osVersion = null;
             syntax.DefineOption(
@@ -70,7 +72,8 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
             if (this is IManifestFilterOptions)
             {
                 IManifestFilterOptions filterOptions = (IManifestFilterOptions)this;
-                filter.DockerArchitecture = filterOptions.Architecture;
+                filter.IncludeArchitecture = filterOptions.Architecture;
+                filter.IncludeOsType = filterOptions.OsType;
                 filter.IncludeOsVersion = filterOptions.OsVersion;
                 filter.IncludePaths = filterOptions.Paths;
             }
@@ -109,15 +112,23 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
             syntax.DefineOption("manifest", ref manifest, "Path to json file which describes the repo");
             Manifest = manifest;
 
+            string registryOverride = null;
+            syntax.DefineOption("registry-override", ref registryOverride, "Alternative registry which overrides the manifest");
+            RegistryOverride = registryOverride;
+
             string repo = null;
             syntax.DefineOption("repo", ref repo, "Repo to operate on (Default is all)");
             Repo = repo;
 
             IReadOnlyList<string> repoOverrides = Array.Empty<string>();
-            syntax.DefineOptionList("repo-override", ref repoOverrides, "Alternative repos which override the manifest (<target repo>=<override>)");
+            syntax.DefineOptionList("repo-override", ref repoOverrides, "Alternative repos which overrides the manifest (<target repo>=<override>)");
             RepoOverrides = repoOverrides
                 .Select(pair => pair.Split(new char[] { '=' }, 2))
                 .ToDictionary(split => split[0], split => split[1]);
+
+            string repoPrefix = null;
+            syntax.DefineOption("repo-prefix", ref repoPrefix, "Prefix to add to the repo names specified in the manifest");
+            RepoPrefix = repoPrefix;
 
             IReadOnlyList<string> variables = Array.Empty<string>();
             syntax.DefineOptionList("var", ref variables, "Named variables to substitute into the manifest (<name>=<value>)");
