@@ -18,50 +18,50 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
 
         public override Task ExecuteAsync()
         {
-            Logger.WriteHeading("GENERATING TAGS LIST");
-            IEnumerable<ImageInfo> images = Manifest.AllRepos
-                .SelectMany(repo => repo.AllImages)
-                .ToArray();
-            IEnumerable<string> sharedTags = images
-                .SelectMany(image => image.SharedTags)
-                .Select(tag => tag.FullyQualifiedName);
-            Logger.WriteSubheading("Manifest Tags");
-            Logger.WriteMessage(string.Join(Environment.NewLine, sharedTags));
-            Logger.WriteMessage(sharedTags.Count().ToString());
-            IEnumerable<string> platformTags = images
-                .SelectMany(image => image.AllPlatforms)
-                .SelectMany(platform => platform.Tags)
-                .Select(tag => tag.FullyQualifiedName);
-            Logger.WriteSubheading("Concrete Tags");
-            Logger.WriteMessage(string.Join(Environment.NewLine, platformTags));
-            Logger.WriteMessage(platformTags.Count().ToString());
-            IEnumerable<string> platforms = images
-                .SelectMany(image => image.AllPlatforms)
-                .Select(platform => platform.DockerfilePath);
-            Logger.WriteSubheading("Unique Images");
-            Logger.WriteMessage(string.Join(Environment.NewLine, platforms));
-            Logger.WriteMessage(platforms.Count().ToString());
+            // Logger.WriteHeading("GENERATING TAGS LIST");
+            // IEnumerable<ImageInfo> images = Manifest.AllRepos
+            //     .SelectMany(repo => repo.AllImages)
+            //     .ToArray();
+            // IEnumerable<string> sharedTags = images
+            //     .SelectMany(image => image.SharedTags)
+            //     .Select(tag => tag.FullyQualifiedName);
+            // Logger.WriteSubheading("Manifest Tags");
+            // Logger.WriteMessage(string.Join(Environment.NewLine, sharedTags));
+            // Logger.WriteMessage(sharedTags.Count().ToString());
+            // IEnumerable<string> platformTags = images
+            //     .SelectMany(image => image.AllPlatforms)
+            //     .SelectMany(platform => platform.Tags)
+            //     .Select(tag => tag.FullyQualifiedName);
+            // Logger.WriteSubheading("Concrete Tags");
+            // Logger.WriteMessage(string.Join(Environment.NewLine, platformTags));
+            // Logger.WriteMessage(platformTags.Count().ToString());
+            // IEnumerable<string> platforms = images
+            //     .SelectMany(image => image.AllPlatforms)
+            //     .Select(platform => platform.DockerfilePath);
+            // Logger.WriteSubheading("Unique Images");
+            // Logger.WriteMessage(string.Join(Environment.NewLine, platforms));
+            // Logger.WriteMessage(platforms.Count().ToString());
             // return sharedTags
             //     .Concat(platformTags);
-            // foreach (RepoInfo repo in Manifest.FilteredRepos)
-            // {
-            //     var variantGroups = repo.AllImages
-            //         .Select(image => new
-            //         {
-            //             Variant = image.AllPlatforms.First().DockerfilePath.Split('/')[1],
-            //             Tags = image.SharedTags.Concat(image.AllPlatforms.SelectMany(platform => platform.Tags))
-            //         })
-            //         .GroupBy(info => info.Variant);
+            foreach (RepoInfo repo in Manifest.FilteredRepos)
+            {
+                var variantGroups = repo.AllImages
+                    .Select(image => new
+                    {
+                        Variant = image.AllPlatforms.First().DockerfilePath.Split('/')[1],
+                        Tags = image.SharedTags.Concat(image.AllPlatforms.SelectMany(platform => platform.Tags))
+                    })
+                    .GroupBy(info => info.Variant);
 
-            //     foreach (var variantGroup in variantGroups)
-            //     {
-            //         Logger.WriteSubheading($"{variantGroup.Key}:");
-            //         string tags = variantGroup.SelectMany(info => info.Tags)
-            //             .Select(tag => GetTagYaml(tag))
-            //             .Aggregate((working, next) => $"{working}{Environment.NewLine}{next}");
-            //         Logger.WriteMessage(tags);
-            //     }
-            // }
+                foreach (var variantGroup in variantGroups)
+                {
+                    Logger.WriteSubheading($"{variantGroup.Key}:");
+                    string tags = variantGroup.SelectMany(info => info.Tags)
+                        .Select(tag => GetTagYaml(tag))
+                        .Aggregate((working, next) => $"{working}{Environment.NewLine}{next}");
+                    Logger.WriteMessage(tags);
+                }
+            }
 
             return Task.CompletedTask;
         }
