@@ -26,25 +26,25 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
 
         private IEnumerable<TagInfo> BuiltTags { get; set; } = Enumerable.Empty<TagInfo>();
 
+        private List<Task> pushTasks = new List<Task>();
+
         [ImportingConstructor]
         public BuildCommand(IDockerService dockerService)
         {
             this.dockerService = dockerService ?? throw new ArgumentNullException(nameof(dockerService));
         }
 
-        public override Task ExecuteAsync()
+        public override async Task ExecuteAsync()
         {
             PullBaseImages();
             BuildImages();
 
-            if (BuiltTags.Any())
+            if (pushTasks.Any())
             {
-                PushImages();
+                await Task.WhenAll(pushTasks);
             }
 
             WriteBuildSummary();
-
-            return Task.CompletedTask;
         }
 
         private void BuildImages()
@@ -114,7 +114,14 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
                             imageData.BaseImages = baseImageDigests;
                         }
 
-                        imageData.SimpleTags = GetPushTags(platform.Tags)
+                        IEnumerable<TagInfo> tagsToPush = GetPushTags(platform.Tags).ToArray();
+
+                        if (Options.IsPushEnabled)
+                        {
+                            pushTasks.Add(Task.Run(() => PushImages(tagsToPush)));
+                        }
+
+                        imageData.SimpleTags = tagsToPush
                             .Select(tag => tag.Name)
                             .OrderBy(name => name)
                             .ToList();
@@ -264,7 +271,7 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
             }
         }
 
-        private void PushImages()
+        private void PushImages(IEnumerable<TagInfo> tags)
         {
             if (Options.IsPushEnabled)
             {
@@ -272,9 +279,7 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
 
                 ExecuteWithUser(() =>
                 {
-                    IEnumerable<string> pushTags = GetPushTags(BuiltTags)
-                        .Select(tag => tag.FullyQualifiedName);
-                    foreach (string tag in pushTags)
+                    foreach (string tag in tags.Select(tag => tag.FullyQualifiedName))
                     {
                         this.dockerService.PushImage(tag, Options.IsDryRun);
                     }
