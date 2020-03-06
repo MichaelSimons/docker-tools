@@ -35,7 +35,7 @@ namespace Microsoft.DotNet.ImageBuilder.ViewModel
         public Platform Model { get; private set; }
         public IEnumerable<string> OverriddenFromImages { get => _overriddenFromImages; }
         private string FullRepoModelName { get; set; }
-        private string RepoName { get; set; }
+        public string RepoName { get; set; }
         public IEnumerable<TagInfo> Tags { get; private set; }
         public IDictionary<string, CustomBuildLegGroupingInfo> CustomLegGroupings { get; private set; }
         private VariableHelper VariableHelper { get; set; }

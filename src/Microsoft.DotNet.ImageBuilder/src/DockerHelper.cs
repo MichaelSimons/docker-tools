@@ -55,6 +55,15 @@ namespace Microsoft.DotNet.ImageBuilder
             return image.Substring(0, image.IndexOf(':'));
         }
 
+        public static string GetManifest(string image, bool isDryRun)
+        {
+            return ExecuteCommand(
+                "manifest inspect",
+                "Failed to retrieve image manifest",
+                additionalArgs: $"{image} --verbose",
+                isDryRun: isDryRun);
+        }
+
         public static bool LocalImageExists(string tag, bool isDryRun) => ResourceExists(ManagementType.Image, tag, isDryRun);
 
         public static void Login(string username, string password, string server, bool isDryRun)
@@ -195,8 +204,19 @@ namespace Microsoft.DotNet.ImageBuilder
         {
             ProcessStartInfo startInfo = new ProcessStartInfo("docker", $"{command} {additionalArgs}");
             startInfo.RedirectStandardOutput = true;
-            Process process = ExecuteHelper.Execute(startInfo, isDryRun, errorMessage);
-            return isDryRun ? "" : process.StandardOutput.ReadToEnd().Trim();
+
+            string output = string.Empty;
+            Func<ProcessStartInfo, Process> executeProcess = (info) =>
+            {
+                Process process = Process.Start(info);
+                output = process.StandardOutput.ReadToEnd().Trim();
+                process.WaitForExit();
+                return process;
+            };
+
+            ExecuteHelper.Execute(startInfo, executeProcess, isDryRun, errorMessage);
+
+            return isDryRun ? "" : output;
         }
 
         private static string ExecuteCommandWithFormat(
