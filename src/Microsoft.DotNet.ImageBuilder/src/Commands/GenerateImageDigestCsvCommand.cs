@@ -50,12 +50,13 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
             string osVariant = McrTagsMetadataGenerator.GetOSDisplayName(platform);
             string productVersion = platform.Tags.First().FullyQualifiedName.Split(":")[1].Split("-")[0];
             string repo = platform.RepoName.Substring(18);
+            string buildTimestamp = DateTime.Now.ToUniversalTime().ToString("yyyy'-'MM'-'dd' 'HH':'mm':'ss");
 
-            string info = $"{digest},{arch},{os},\"{osVariant}\",{productVersion},{platform.DockerfilePathRelativeToManifest},{repo}{Environment.NewLine}";
+            string info = $"{digest},{arch},{os},\"{osVariant}\",{productVersion},{platform.DockerfilePathRelativeToManifest},{repo},{buildTimestamp}{Environment.NewLine}";
 
             foreach (TagInfo tag in platform.Tags)
             {
-                info += $"{tag.Name},{arch},{os},\"{osVariant}\",{productVersion},{platform.DockerfilePathRelativeToManifest},{repo}{Environment.NewLine}";
+                info += $"{tag.Name},{arch},{os},\"{osVariant}\",{productVersion},{platform.DockerfilePathRelativeToManifest},{repo},{buildTimestamp}{Environment.NewLine}";
             }
 
             return info;
