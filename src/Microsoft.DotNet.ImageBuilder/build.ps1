@@ -2,6 +2,7 @@
 param(
     [string]$DockerRepo = "mcr.microsoft.com/dotnet-buildtools/image-builder",
     [switch]$PushImages,
+    [switch]$UpdatePipeline,
     [switch]$CleanupDocker,
     [string]$TagTimestamp = (Get-Date -Format yyyyMMddHHmmss)
 )
@@ -47,6 +48,14 @@ try {
             throw "Failed pushing images"
         }
     }
+
+    if ($UpdatePipeline) {
+        $dockerPipelineTemplatePath = '..\..\eng\common\templates\variables\docker-images.yml'
+        $content = Get-Content -Path $dockerPipelineTemplatePath
+        $newContent = [regex]::replace($content, $pattern, $stableTag)
+        $newContent | Set-Content -Path $dockerPipelineTemplatePath
+    }
+
 }
 finally {
     Invoke-CleanupDocker $activeOS
