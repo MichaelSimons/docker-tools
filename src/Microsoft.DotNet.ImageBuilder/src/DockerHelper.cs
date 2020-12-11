@@ -175,9 +175,10 @@ namespace Microsoft.DotNet.ImageBuilder
         /// </remarks>
         public static Docker.Manifest InspectManifest(string image, bool isDryRun)
         {
-            string manifest = ExecuteCommand(
-                "manifest inspect", "Failed to inspect manifest", $"{image} --verbose", isDryRun);
-            return JsonConvert.DeserializeObject<Docker.Manifest>(manifest);
+            string output = ExecuteHelper.Execute("docker", $"manifest inspect {image} --verbose", isDryRun, "Failed to inspect manifest");
+            output = isDryRun ? "" : output;
+
+            return JsonConvert.DeserializeObject<Docker.Manifest>(output);
         }
 
         public static string GetRegistry(string imageName)
