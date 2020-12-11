@@ -54,7 +54,7 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
                         Manifest manifest = DockerHelper.InspectManifest($"mcr.microsoft.com/{imageInfo[6]}@{imageInfo[0]}", Options.IsDryRun);
                         lock (layerData)
                         {
-                            layerData += $"\"{manifest.SchemaV2Manifest.Layers.Last().Digest}\",\"{imageInfo[1]}\",\"{imageInfo[2]}\",\"{imageInfo[3].Replace("\"", "")}\",\"{imageInfo[4]}\",\"{imageInfo[5]}\",\"{imageInfo[6]}\",\"{imageInfo[7]}\"{Environment.NewLine}";
+                            layerData += $"\"{manifest.SchemaV2Manifest.Layers.Last().Digest}\",\"{imageInfo[1]}\",\"{imageInfo[2]}\",\"{imageInfo[3]}\",\"{imageInfo[4]}\",\"{imageInfo[5]}\",\"{imageInfo[6]}\",\"{imageInfo[7]}\"{Environment.NewLine}";
                             //_loggerService.WriteMessage(layerData);
                         }
                     }
