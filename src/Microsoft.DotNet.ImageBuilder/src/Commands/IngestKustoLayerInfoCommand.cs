@@ -38,7 +38,7 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
 
             List<string> failedData = new List<string>();
             //string image = imageData[1];
-            int pageLength = 250;
+            int pageLength = 500;
             int pageCount = (imageData.Length + pageLength - 1) / pageLength;
             for (int i = 0; i < pageCount; i++)
             {
@@ -55,7 +55,12 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
                         string[] imageInfo = image.Split('\t');
                         try{
                             Manifest manifest = DockerHelper.InspectManifest($"mcr.microsoft.com/{imageInfo[6]}@{imageInfo[0]}", Options.IsDryRun);
-                            localData += $"\"{manifest.SchemaV2Manifest.Layers.Last().Digest}\",\"{imageInfo[1]}\",\"{imageInfo[2]}\",\"{imageInfo[3].Replace("\"", "")}\",\"{imageInfo[4]}\",\"{imageInfo[5]}\",\"{imageInfo[6]}\",\"{imageInfo[7]}\"{Environment.NewLine}";
+                            int layerCount = manifest.SchemaV2Manifest.Layers.Count();
+                            for (int i = 0 ; i < layerCount; i ++)
+                            {
+                                Descriptor descriptor = manifest.SchemaV2Manifest.Layers.ElementAt(i);
+                                localData += $"\"{descriptor.Digest}\",\"{descriptor.Size}\",\"{layerCount-i}\",\"{imageInfo[0]}\",\"{imageInfo[1]}\",\"{imageInfo[2]}\",\"{imageInfo[3].Replace("\"", "")}\",\"{imageInfo[4]}\",\"{imageInfo[5]}\",\"{imageInfo[6]}\",\"{imageInfo[7]}\"{Environment.NewLine}";
+                            }
                         }
                         catch (Exception)
                         {
@@ -80,7 +85,7 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
                 if (string.IsNullOrEmpty(layerData))
                 {
                     _loggerService.WriteMessage("Skipping ingestion due to empty layer info data.");
-                    return;
+                    break;
                 }
 
                 using MemoryStream stream = new MemoryStream();
