@@ -2,26 +2,28 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Collections.Generic;
 using System.CommandLine;
+using System.Linq;
+using static Microsoft.DotNet.ImageBuilder.Commands.CliHelper;
 
 namespace Microsoft.DotNet.ImageBuilder.Commands
 {
-    public class IngestKustoLayerInfoOptions : KustoOptions
+    public class IngestKustoLayerInfoOptions : IngestKustoImageInfoOptions
     {
-        protected override string CommandHelp => "Ingests layer info data into Kusto";
+        public string DataFile { get; set; } = string.Empty;
+    }
 
-        public string DataFile { get; set; }
+    public class IngestKustoLayerInfoOptionsBuilder : IngestKustoImageInfoOptionsBuilder
+    {
+        public override IEnumerable<Option> GetCliOptions() =>
+            base.GetCliOptions()
+            .Concat(new Option[]
+                {
+                    CreateOption<string>("dataFile", nameof(IngestKustoLayerInfoOptions.DataFile),
+                        "Image data file"),
+                });
 
-        public override void DefineOptions(ArgumentSyntax syntax)
-        {
-            base.DefineOptions(syntax);
-
-            string dataFile = null;
-            syntax.DefineOption(
-                "dataFile",
-                ref dataFile,
-                "Image data file");
-            DataFile = dataFile;
-        }
+        public override IEnumerable<Argument> GetCliArguments() => base.GetCliArguments();
     }
 }

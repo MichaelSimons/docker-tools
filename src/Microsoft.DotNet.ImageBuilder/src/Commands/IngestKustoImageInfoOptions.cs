@@ -9,7 +9,7 @@ using System.Linq;
 #nullable enable
 namespace Microsoft.DotNet.ImageBuilder.Commands
 {
-    public class IngestKustoImageInfoOptions : KustoOptions
+    public class IngestKustoImageInfoOptions : ImageInfoOptions, IFilterableOptions
     {
         public ManifestFilterOptions FilterOptions { get; set; } = new();
 

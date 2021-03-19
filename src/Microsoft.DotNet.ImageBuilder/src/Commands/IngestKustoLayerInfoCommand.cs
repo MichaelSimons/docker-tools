@@ -18,8 +18,10 @@ using Microsoft.DotNet.ImageBuilder.ViewModel;
 namespace Microsoft.DotNet.ImageBuilder.Commands
 {
     [Export(typeof(ICommand))]
-    public class IngestKustoLayerInfoCommand : ManifestCommand<IngestKustoLayerInfoOptions>
+    public class IngestKustoLayerInfoCommand : ManifestCommand<IngestKustoLayerInfoOptions, IngestKustoLayerInfoOptionsBuilder>
     {
+        protected override string Description => "Ingests image layer data into Kusto";
+
         private readonly IKustoClient _kustoClient;
         private readonly ILoggerService _loggerService;
 
@@ -96,7 +98,8 @@ namespace Microsoft.DotNet.ImageBuilder.Commands
 
                 if (!Options.IsDryRun)
                 {
-                    await _kustoClient.IngestFromCsvStreamAsync(stream, Options);
+                    await _kustoClient.IngestFromCsvStreamAsync(
+                        stream, Options.ServicePrincipal, Options.Cluster, Options.Database, Options.LayerTable, Options.IsDryRun);
                 }
             }
 
